@@ -142,70 +142,70 @@ const removePositionRow = (item: Position) => {
       <span id="file-chosen">{{ fileName }}</span>
     </div>
 
-    <div class="fields-group fields-group__header">
-      <div class="fields-group fields-group__number-date">
-        <div class="field">
+    <div class="input-group input-group__header">
+      <div class="input-group input-group__number-date">
+        <div class="input-wrapper">
           <label>№ КП</label>
           <input v-model="accountNumber" type="text" />
         </div>
-        <div class="field">
+        <div class="input-wrapper">
           <label>Дата формирования</label>
           <input v-model="accountDate" type="date" />
         </div>
       </div>
-      <div class="fields-group fields-group__org">
-        <div class="field">
+      <div class="input-group input-group__org">
+        <div class="input-wrapper">
           <label>Отдел</label>
           <input v-model="organisationDept" type="text" />
         </div>
-        <div class="field">
+        <div class="input-wrapper">
           <label>Заказчик</label>
-          <input v-model="organisationName" type="text" />
+          <input v-model="organisationName" type="text"/>
         </div>
       </div>
     </div>
 
     <div class="table">
       <div class="table__header">
-        <div class="table-header-cell">№ п/п</div>
-        <div class="table-header-cell">Наименование<br>(Требование)</div>
-        <div class="table-header-cell">Требуемые<br>характеристики</div>
-        <div class="table-header-cell">Предложение участника<br>(выделить аналоги)</div>
-        <div class="table-header-cell">Ед.<br>измер.</div>
-        <div class="table-header-cell">Кол-во</div>
-        <div class="table-header-cell">Цена за единицу,<br>без НДС</div>
-        <div class="table-header-cell">Стоимость без НДС</div>
-        <div class="table-header-cell"></div>
+        <div class="header-cell">№ п/п</div>
+        <div class="header-cell">Наименование<br>(Требование)</div>
+        <div class="header-cell">Требуемые<br>характеристики</div>
+        <div class="header-cell">Предложение участника<br>(выделить аналоги)</div>
+        <div class="header-cell">Ед.<br>измер.</div>
+        <div class="header-cell">Кол-во</div>
+        <div class="header-cell">Цена за единицу,<br>без НДС</div>
+        <div class="header-cell">Стоимость без НДС</div>
+        <div class="header-cell"></div>
       </div>
 
       <div class="table__row" v-for="(position, index) in positions" :key="index">
-        <div class="table-cell">{{ index+1 }}</div>
-        <div class="table-cell">
-          <input class="table-cell-input" type="text" v-model="position.name">
+        <div class="cell">{{ index + 1 }}</div>
+        <div class="cell">
+          <input class="cell__input" type="text" v-model="position.name">
         </div>
-        <div class="table-cell">
-          <textarea class="table-cell--textarea" v-model="position.characteristics"></textarea>
+        <div class="cell">
+          <textarea class="cell__textarea" v-model="position.characteristics"></textarea>
         </div>
-        <div class="table-cell table-cell--checkbox">
-          <textarea class="table-cell--textarea" v-model="position.productOffer"></textarea>
-          <label class="container">
+        <div class="cell cell--checkbox">
+          <textarea class="cell__textarea" v-model="position.productOffer"></textarea>
+          <label class="checkbox-wrapper">
             <input type="checkbox" v-model="position.productOfferIsAnalog">
             <span class="checkmark"></span>
           </label>
         </div>
-        <div class="table-cell">
-          <input class="table-cell-input" type="text" v-model="position.unit">
+        <div class="cell">
+          <input class="cell__input" type="text" v-model="position.unit">
         </div>
-        <div class="table-cell">
-          <input class="table-cell-input" type="number" v-model="position.quantity">
+        <div class="cell">
+          <input class="cell__input" type="number" v-model="position.quantity">
         </div>
-        <div class="table-cell">
-          <input class="table-cell-input" type="number" v-model="position.priceWithoutNds">
+        <div class="cell">
+          <input class="cell__input" type="number" v-model="position.priceWithoutNds">
         </div>
-        <div class="table-cell">
-          <input class="table-cell-input" type="number" v-model="position.sumWithOutNds">
+        <div class="cell">
+          <input class="cell__input" type="number" v-model="position.sumWithOutNds">
         </div>
-        <div class="table-cell">
+        <div class="cell">
           <button class="btn__remove" @click="removePositionRow(position)">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M4 6.17647H20M9 3H15M10 16.7647V10.4118M14 16.7647V10.4118M15.5 21H8.5C7.39543 21 6.5 20.0519 6.5 18.8824L6.0434 7.27937C6.01973 6.67783 6.47392 6.17647 7.04253 6.17647H16.9575C17.5261 6.17647 17.9803 6.67783 17.9566 7.27937L17.5 18.8824C17.5 20.0519 16.6046 21 15.5 21Z" stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -217,31 +217,30 @@ const removePositionRow = (item: Position) => {
 
     <button class="btn btn__add-position" @click="addPositionRow">Добавить позицию</button>
 
-
-    <div class="fields-group fields-group__price">
-      <div class="field">
+    <div class="input-group input-group__price">
+      <div class="input-wrapper">
         <label>Всего без НДС</label>
         <input v-model="totalWithoutNds" type="number" placeholder="12345.12"/>
       </div>
 
-      <div class="field">
+      <div class="input-wrapper">
         <label>Всего НДС</label>
         <input v-model="ndsSum" type="number" placeholder="12345.12"/>
       </div>
     </div>
 
-    <div class="fields-group fields-group__footer">
-      <div class="field">
+    <div class="input-group fields-group__footer">
+      <div class="input-wrapper">
         <label>Условия оплаты</label>
         <textarea v-model="paymentConditions"></textarea>
       </div>
 
-      <div class="field">
+      <div class="input-wrapper">
         <label>Условия доставки</label>
         <textarea v-model="deliveryConditions"></textarea>
       </div>
 
-      <div class="field">
+      <div class="input-wrapper">
         <label>Срок предложения (календарных дней)</label>
         <input v-model="deliveryTime" type="number" />
       </div>
@@ -258,7 +257,7 @@ const removePositionRow = (item: Position) => {
   overflow-y: scroll
   overflow-x: hidden
   margin: 10px 0 10px 0
-.table-header-cell
+.header-cell
   border: 1px solid black
   padding: 4px 0 4px 0
   resize: both
@@ -271,21 +270,21 @@ const removePositionRow = (item: Position) => {
 .table__row
   display: grid
   grid-template-columns: 2% 20% 20% 20% 7% 7% 10% 10% 4%
-.table-cell
+.cell
   display: flex
   align-items: center
   height: 100%
   min-height: 50px
   width: 100%
   border: 1px solid black
-.table-cell-input
+.cell__input
   height: 100%
   width: 100%
   border-radius: 0
   border: none
   text-overflow: ellipsis
 
-.table-cell--checkbox
+.cell--checkbox
   display: flex
   padding-right: 3px
   gap: 3px
@@ -300,11 +299,23 @@ textarea
   -moz-appearance: none
   font-family: sans-serif
 
-.table-cell--textarea
+.cell__textarea
   border: none
 
-.field
+.input-wrapper
   margin: 3px 0 3px 0
+
+  input, textarea
+    border-radius: 5px
+    border: 1px solid gray
+    transition: 0.2s ease-in
+
+  input:hover, textarea:hover
+    border: 1px solid darkcyan
+    box-shadow: 5px 5px 5px 5px gray
+
+  textarea:focus, input:focus
+    border: 1px solid blue
 
 label
   text-align: start
@@ -339,7 +350,7 @@ label
 .btn__remove:hover
   scale: 1.25
 
-.fields-group
+.input-group
   margin: 10px 0 10px 0
   align-items: start
   width: 50%
@@ -349,46 +360,46 @@ label
   input[type="date"], input[type="number"]
     width: fit-content
 
-.fields-group__header
+.input-group__header
   width: 100%
   display: grid
   grid-template-columns: 1fr 1fr
 
-.fields-group__number-date
+.input-group__number-date
   width: 80%
   align-items: start
 
-  .field
+  .input-wrapper
     display: grid
     grid-template-rows: 1fr
     grid-template-columns: 1fr 2fr
 
-.fields-group__org
+.input-group__org
   width: 80%
   align-items: end
 
-  .field
+  .input-wrapper
     display: grid
     grid-template-rows: 1fr
     grid-template-columns: 1fr 2fr
 
-.fields-group__price
+.input-group__price
   align-items: end
 
-  .field
+  .input-wrapper
     display: grid
     grid-template-rows: 1fr
     grid-template-columns: 1fr 1.5fr
 .fields-group__footer
   align-items: start
 
-  .field
+  .input-wrapper
     display: grid
     grid-template-rows: 1fr
     grid-template-columns: 1fr 1.5fr
 
 /* Customize the label (the container) */
-.container
+.checkbox-wrapper
   display: block
   position: relative
   padding-left: 26px
@@ -401,7 +412,7 @@ label
   user-select: none
 
 /* Hide the browser's default checkbox */
-.container input
+.checkbox-wrapper input
   position: absolute
   opacity: 0
   cursor: pointer
@@ -420,11 +431,11 @@ label
   border-radius: 3px
 
 /* On mouse-over, add a grey background color */
-.container:hover input ~ .checkmark
+.checkbox-wrapper:hover input ~ .checkmark
   background-color: #ccc
 
 /* When the checkbox is checked, add a blue background */
-.container input:checked ~ .checkmark
+.checkbox-wrapper input:checked ~ .checkmark
   background-color: #2196F3
 
 /* Create the checkmark/indicator (hidden when not checked) */
@@ -434,11 +445,11 @@ label
   display: none
 
 /* Show the checkmark when checked */
-.container input:checked ~ .checkmark:after
+.checkbox-wrapper input:checked ~ .checkmark:after
   display: block
 
 /* Style the checkmark/indicator */
-.container .checkmark:after
+.checkbox-wrapper .checkmark:after
   left: 8px
   top: 4px
   width: 5px
