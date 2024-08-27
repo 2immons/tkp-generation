@@ -1,19 +1,20 @@
 # tkp-generation
+## Генерация ТКП по шаблону DOCX
 
-## Project setup
+### GitHub Pages
+#### https://2immons.github.io/tkp-generation/
+
+## Установка зависимостей
 ```
 npm install
 ```
 
-### Compiles and hot-reloads for development
+### Запуск для разработки
 ```
 npm run serve
 ```
 
-### Compiles and minifies for production
+### Деплой
 ```
-npm run build
+npm run deploy
 ```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).

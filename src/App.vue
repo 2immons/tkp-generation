@@ -16,9 +16,6 @@
   padding: 0
   margin: 0
 
-input[type="text"], input[type="number"], textarea
-  padding: 5px 3px 5px 3px
-
 input, textarea
   outline: none
   -moz-appearance: none
