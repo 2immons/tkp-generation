@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import {computed, onBeforeUnmount, onMounted, ref} from 'vue';
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { saveAs } from 'file-saver';
 import { convert } from 'number-to-words-ru'
+import axios from "axios";
 
 interface Position {
   name: string,
-  characteristics: string,
+  characteristics?: string,
   productOffer: string,
   productOfferIsAnalog: boolean,
   unit: string,
@@ -16,18 +17,77 @@ interface Position {
   sumWithOutNds: number,
 }
 
-// Референсы для хранения данных из формы
+// Загрузка данных из sessionStorage при монтировании компонента
+onMounted(() => {
+  loadFromSessionStorage();
+  window.addEventListener('beforeunload', saveToSessionStorage);
+});
+
+// Сохранение данных в sessionStorage перед перезагрузкой или закрытием вкладки
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', saveToSessionStorage);
+});
+
+// saveToSessionStorage сохраняет все переменные в sessionStorage
+const saveToSessionStorage = () => {
+  sessionStorage.setItem('state', JSON.stringify({
+    accountNumber: accountNumber.value,
+    accountDate: accountDate.value,
+    organisationName: organisationName.value,
+    organisationDept: organisationDept.value,
+    totalWithoutNds: totalWithoutNds.value,
+    ndsSum: ndsSum.value,
+    totalWithNds: totalWithNds.value,
+    paymentConditions: paymentConditions.value,
+    deliveryConditions: deliveryConditions.value,
+    deliveryTime: deliveryTime.value,
+    positions: positions.value,
+    isCharacteristicsInUse: isCharacteristicsInUse.value,
+    fileName: fileName.value,
+    fileData: fileData.value,
+    isFileError: isFileError.value,
+    fileErrorMsg: fileErrorMsg.value,
+  }));
+};
+
+// loadFromSessionStorage загружает все переменные из sessionStorage
+const loadFromSessionStorage = () => {
+  const savedState = sessionStorage.getItem('state');
+  if (savedState) {
+    const state = JSON.parse(savedState);
+    accountNumber.value = state.accountNumber;
+    accountDate.value = state.accountDate;
+    organisationName.value = state.organisationName;
+    organisationDept.value = state.organisationDept;
+    totalWithoutNds.value = state.totalWithoutNds;
+    ndsSum.value = state.ndsSum;
+    totalWithNds.value = state.totalWithNds;
+    paymentConditions.value = state.paymentConditions;
+    deliveryConditions.value = state.deliveryConditions;
+    deliveryTime.value = state.deliveryTime;
+    positions.value = state.positions;
+    isCharacteristicsInUse.value = state.isCharacteristicsInUse;
+    fileName.value = state.fileName;
+    fileData.value = state.fileData;
+    isFileError.value = state.isFileError;
+    fileErrorMsg.value = state.fileErrorMsg;
+  }
+};
+
+// Основные данные шаблона документа
 const accountNumber = ref('');
 const accountDate = ref('');
 const organisationName = ref('');
-const organisationDept = ref('тендерный');
-const totalWithoutNds = ref('');
+const organisationDept = ref('В тендерный отдел');
+const totalWithoutNds = ref();
 const ndsSum = ref('');
 const totalWithNds = ref(0);
 const paymentConditions = ref('');
 const deliveryConditions = ref('');
 const deliveryTime = ref(90);
+const isCharacteristicsInUse = ref(true)
 
+// Позиции ТКП
 const positions = ref<Position[]>([
   {
     name: '',
@@ -41,16 +101,26 @@ const positions = ref<Position[]>([
   }
 ]);
 
-const fileName = ref('Файл не выбран')
-
-// Референс для хранения загруженного файла
+// Загруженный файл-шаблон
 const fileData = ref<ArrayBuffer | null>(null);
 
-// Функция обработки загрузки файла
+// Ошибка файла
+const isFileError = ref(false)
+const fileErrorMsg = ref('')
+
+// Имя файла-шаблона
+const fileName = ref('Шаблон не загружен')
+
+// handleFileUpload получает файл и имя файла после его загрузки пользователем
 const handleFileUpload = (event: Event) => {
   const inputElement = event.target as HTMLInputElement;
   const file = inputElement.files?.[0];
   if (file) {
+    isFileError.value = false
+    if (!file.name.includes(".docx") || !file.name.includes(".doc")) {
+      showFileError("Неправильное расширение файла.Необходимо .docx или .doc")
+      return
+    }
     fileName.value = file.name
     const reader = new FileReader();
 
@@ -62,20 +132,81 @@ const handleFileUpload = (event: Event) => {
   }
 };
 
-// Функция для генерации документа
+// calculateSum подсчитывает сумму по позиции
+const calculateSum = (position: Position) => {
+  position.sumWithOutNds = position.priceWithoutNds * position.quantity
+  calculateTotalSum()
+}
+
+// calculatePrice подсчитывает цену по позиции
+const calculatePrice = (position: Position) => {
+  if (position.quantity === 0)
+    position.priceWithoutNds = 0
+  else
+    position.priceWithoutNds = position.sumWithOutNds / position.quantity
+  calculateTotalSum()
+}
+
+// calculateTotalSum подсчитывает общую сумму без НДС
+const calculateTotalSum = () => {
+  totalWithoutNds.value = 0
+  positions.value.forEach(positionItem => {
+    totalWithoutNds.value += positionItem.sumWithOutNds
+  })
+}
+
+// cancelFloats запрещает вводить точку и запятую
+const cancelFloats = (event: KeyboardEvent) => {
+  if (event.key === '.' || event.key === ',') {
+    event.preventDefault()
+  }
+}
+
+const formatToTwoDecimals = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const numericValue = parseFloat(input.value)
+  if (!isNaN(numericValue)) {
+    input.value = numericValue.toFixed(2)
+  }
+}
+
+// convertToString переводит дни в строку
+const convertToString = (number: number) => {
+  if (number % 10 === 1) return `${number} календарный день`
+  else if (number % 10 === 2 || number % 10 === 3 || number % 10 === 4)
+    return `${number} календарный дня`
+}
+
+// showFileError включает отображение ошибки документа
+const showFileError = (errorMsg: string) => {
+  fileErrorMsg.value = errorMsg
+  isFileError.value = true
+}
+
+// generateDocument генерирует документ
 const generateDocument = () => {
   if (!fileData.value) {
-    console.error('Шаблон не загружен');
-    return;
+    showFileError("Шаблон документа не загружен")
+    return
   }
+
+  // Удаляем характеристики, если они не используются
+  if (!isCharacteristicsInUse.value) {
+    positions.value = positions.value.map(position => {
+      const { characteristics, ...rest } = position
+      return rest
+    })
+  }
+
+  // TODO: валидация переменных
 
   totalWithNds.value = Number(totalWithoutNds.value) + Number(ndsSum.value)
 
-  const zip = new PizZip(fileData.value);
+  const zip = new PizZip(fileData.value)
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
     linebreaks: true,
-  });
+  })
 
   const templateData = {
     accountNumber: accountNumber.value,
@@ -88,27 +219,35 @@ const generateDocument = () => {
     totalWithNdsLetters: convert(totalWithNds.value),
     paymentConditions: paymentConditions.value,
     deliveryConditions: deliveryConditions.value,
-    deliveryTime: deliveryTime.value
-  };
+    deliveryTime: convertToString(deliveryTime.value),
+    positions: positions.value,
+    isCharacteristicsInUse: isCharacteristicsInUse.value,
+  }
 
-  doc.setData(templateData);
+  doc.setData(templateData)
 
   try {
-    doc.render();
+    doc.render()
   } catch (error) {
-    console.error('Ошибка при рендеринге шаблона', error);
-    throw error;
+    console.error('Ошибка при рендеринге шаблона', error)
+    throw error
   }
 
   const generatedDocBuffer = doc.getZip().generate({
     type: 'blob',
     mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  });
+  })
 
-  const fileName = `ТКП_от_${accountDate.value}.docx`;
+  const fileName = `ТКП_№${accountNumber.value}_от_${accountDate.value}_для_${organisationName.value}.docx`
 
-  saveAs(generatedDocBuffer, fileName);
-};
+  saveAs(generatedDocBuffer, fileName)
+
+  // Тут конвертация в PDF массива generatedDocBuffer
+}
+
+const characteristicsClass = computed(() => {
+  return isCharacteristicsInUse.value ? 'with-characteristics' : 'without-characteristics'
+})
 
 const addPositionRow = () => {
   const newPosition = {
@@ -133,57 +272,72 @@ const removePositionRow = (item: Position) => {
 </script>
 
 <template>
-  <div>
-    <h1>DocsRelease</h1>
-
-    <div class="file">
-      <input class="file-input" type="file" id="actual-btn" hidden @change="handleFileUpload"/>
-      <label class="file-label" for="actual-btn">Выберите файл</label>
-      <span id="file-chosen">{{ fileName }}</span>
+  <div class="container">
+    <div class="file-upload-container">
+      <div class="file-upload-wrapper">
+        <input class="file-input" type="file" id="actual-btn" hidden @change="handleFileUpload"/>
+        <label class="file-label" for="actual-btn">Загрузить шаблон</label>
+        <span id="file-chosen">{{ fileName }}</span>
+      </div>
+      <span v-if="isFileError" class="file-error-wrapper">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 12V7.5M12 15.3354V15.375M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p>{{ fileErrorMsg }}</p>
+      </span>
     </div>
 
-    <div class="input-group input-group__header">
+    <div class="header-inputs">
       <div class="input-group input-group__number-date">
         <div class="input-wrapper">
-          <label>№ КП</label>
-          <input v-model="accountNumber" type="text" />
+          <label>№ КП:</label>
+          <input v-model="accountNumber" type="text" placeholder="1234"/>
         </div>
         <div class="input-wrapper">
-          <label>Дата формирования</label>
+          <label>Дата КП:</label>
           <input v-model="accountDate" type="date" />
         </div>
       </div>
       <div class="input-group input-group__org">
         <div class="input-wrapper">
-          <label>Отдел</label>
-          <input v-model="organisationDept" type="text" />
+          <label>Заказчик:</label>
+          <input v-model="organisationName" type="text" placeholder="Наименование организации"/>
         </div>
         <div class="input-wrapper">
-          <label>Заказчик</label>
-          <input v-model="organisationName" type="text"/>
+          <label>Отдел:</label>
+          <input v-model="organisationDept" type="text" placeholder="Например: 'В отдел продаж', 'В тендерный отдел'"/>
         </div>
       </div>
     </div>
 
+    <div class="characteristics-toggler-wrapper">
+      <label class="checkbox-wrapper">
+        <input type="checkbox" v-model="isCharacteristicsInUse">
+        <span class="checkmark"></span>
+      </label>
+      <span>Характеристики</span>
+    </div>
+
     <div class="table">
-      <div class="table__header">
-        <div class="header-cell">№ п/п</div>
+      <div class="table__header" :class="characteristicsClass">
+        <div class="header-cell">№<br>п/п</div>
         <div class="header-cell">Наименование<br>(Требование)</div>
-        <div class="header-cell">Требуемые<br>характеристики</div>
+        <div class="header-cell" v-if="isCharacteristicsInUse">Требуемые<br>характеристики</div>
         <div class="header-cell">Предложение участника<br>(выделить аналоги)</div>
         <div class="header-cell">Ед.<br>измер.</div>
         <div class="header-cell">Кол-во</div>
-        <div class="header-cell">Цена за единицу,<br>без НДС</div>
-        <div class="header-cell">Стоимость без НДС</div>
+        <div class="header-cell">Цена за ед.,<br>без НДС</div>
+        <div class="header-cell">Стоимость,<br>без НДС</div>
         <div class="header-cell"></div>
       </div>
 
-      <div class="table__row" v-for="(position, index) in positions" :key="index">
-        <div class="cell">{{ index + 1 }}</div>
+      <div class="table__row" :class="characteristicsClass" v-for="(position, index) in positions" :key="index">
+        <div class="cell cell--index">{{ index + 1 }}</div>
         <div class="cell">
-          <input class="cell__input" type="text" v-model="position.name">
+          <textarea class="cell__textarea" v-model="position.name"></textarea>
         </div>
-        <div class="cell">
+        <div class="cell" v-if="isCharacteristicsInUse">
           <textarea class="cell__textarea" v-model="position.characteristics"></textarea>
         </div>
         <div class="cell cell--checkbox">
@@ -197,15 +351,15 @@ const removePositionRow = (item: Position) => {
           <input class="cell__input" type="text" v-model="position.unit">
         </div>
         <div class="cell">
-          <input class="cell__input" type="number" v-model="position.quantity">
+          <input class="cell__input" type="number" v-model="position.quantity" @input="calculateSum(position)">
         </div>
         <div class="cell">
-          <input class="cell__input" type="number" v-model="position.priceWithoutNds">
+          <input class="cell__input" type="number" v-model="position.priceWithoutNds" @blur="formatToTwoDecimals" @input="calculateSum(position)">
         </div>
         <div class="cell">
-          <input class="cell__input" type="number" v-model="position.sumWithOutNds">
+          <input class="cell__input" type="number" v-model="position.sumWithOutNds" @blur="formatToTwoDecimals" @input="calculatePrice(position)">
         </div>
-        <div class="cell">
+        <div class="cell cell--button">
           <button class="btn__remove" @click="removePositionRow(position)">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M4 6.17647H20M9 3H15M10 16.7647V10.4118M14 16.7647V10.4118M15.5 21H8.5C7.39543 21 6.5 20.0519 6.5 18.8824L6.0434 7.27937C6.01973 6.67783 6.47392 6.17647 7.04253 6.17647H16.9575C17.5261 6.17647 17.9803 6.67783 17.9566 7.27937L17.5 18.8824C17.5 20.0519 16.6046 21 15.5 21Z" stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -219,30 +373,31 @@ const removePositionRow = (item: Position) => {
 
     <div class="input-group input-group__price">
       <div class="input-wrapper">
-        <label>Всего без НДС</label>
-        <input v-model="totalWithoutNds" type="number" placeholder="12345.12"/>
+        <label>Всего без НДС:</label>
+        <input v-model="totalWithoutNds" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
       </div>
 
       <div class="input-wrapper">
-        <label>Всего НДС</label>
-        <input v-model="ndsSum" type="number" placeholder="12345.12"/>
+        <label>Всего НДС:</label>
+        <input v-model="ndsSum" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
       </div>
     </div>
 
-    <div class="input-group fields-group__footer">
-      <div class="input-wrapper">
-        <label>Условия оплаты</label>
+    <div class="input-group input-group__footer">
+      <div class="input-wrapper input-wrapper--with-borders">
+        <label>Условия оплаты:</label>
         <textarea v-model="paymentConditions"></textarea>
       </div>
 
-      <div class="input-wrapper">
-        <label>Условия доставки</label>
+      <div class="input-wrapper input-wrapper--with-borders">
+        <label>Условия доставки:</label>
         <textarea v-model="deliveryConditions"></textarea>
       </div>
 
-      <div class="input-wrapper">
-        <label>Срок предложения (календарных дней)</label>
-        <input v-model="deliveryTime" type="number" />
+      <div class="input-wrapper input-wrapper--with-borders">
+        <label>Срок предложения:</label>
+        <input v-model="deliveryTime" type="number" step="1" @keydown="cancelFloats"/>
+        <span>календарных дней</span>
       </div>
     </div>
 
@@ -251,25 +406,39 @@ const removePositionRow = (item: Position) => {
 </template>
 
 <style scoped lang="sass">
+@import "src/styles/variables"
+.characteristics-toggler-wrapper
+  width: fit-content
+  margin: 10px 0 10px 0
+  display: flex
+  height: 30px
+  gap: 10px
+  align-items: center
+  span
+    align-content: center
+    color: $c-grey-text
+
 .table
   border: 1px solid black
-  max-height: 600px
-  overflow-y: scroll
-  overflow-x: hidden
   margin: 10px 0 10px 0
 .header-cell
+  display: flex
   border: 1px solid black
   padding: 4px 0 4px 0
-  resize: both
+  align-items: center
+  justify-content: center
+  overflow: hidden
+.with-characteristics
+  grid-template-columns: 3% 20% 20% 20% 6% 7% 10% 10% 4%
+.without-characteristics
+  grid-template-columns: 4% 25% 25% 8% 10% 12% 12% 4%
 .table__header
   display: grid
-  grid-template-columns: 2% 20% 20% 20% 7% 7% 10% 10% 4%
   border-bottom: 1px solid black
-  background: #c9c9c9
+  background: $c-table-header-bg
   color: black
 .table__row
   display: grid
-  grid-template-columns: 2% 20% 20% 20% 7% 7% 10% 10% 4%
 .cell
   display: flex
   align-items: center
@@ -277,16 +446,21 @@ const removePositionRow = (item: Position) => {
   min-height: 50px
   width: 100%
   border: 1px solid black
+.cell--index
+  justify-content: center
+.cell--sum
+  padding: 5px 3px 5px 3px
+.cell--button
+  overflow: hidden
 .cell__input
   height: 100%
   width: 100%
   border-radius: 0
   border: none
   text-overflow: ellipsis
-
 .cell--checkbox
   display: flex
-  padding-right: 3px
+  padding-right: 6px
   gap: 3px
 
 textarea
@@ -302,24 +476,6 @@ textarea
 .cell__textarea
   border: none
 
-.input-wrapper
-  margin: 3px 0 3px 0
-
-  input, textarea
-    border-radius: 5px
-    border: 1px solid gray
-    transition: 0.2s ease-in
-
-  input:hover, textarea:hover
-    border: 1px solid darkcyan
-    box-shadow: 5px 5px 5px 5px gray
-
-  textarea:focus, input:focus
-    border: 1px solid blue
-
-label
-  text-align: start
-
 .btn__remove
   border: none
   width: 100%
@@ -329,82 +485,121 @@ label
   transition: 0.1s ease-in
 
 .btn
-  height: 40px
-  width: 200px
+  height: 45px
   border-radius: 8px
-  border: 1px solid brown
-  background: burlywood
-  text-transform: uppercase
-  font-weight: 700
+  border: 1px solid $c-btn-border
+  background: $c-btn
+  color: white
+  font-weight: 400
+  font-size: 18px
   cursor: pointer
   transition: 0.1s ease-in
+  width: fit-content
+  padding: 0 10px 0 10px
+  box-shadow: 0 0 3px $c-btn-shadow
 
 .btn:hover
-  background: brown
-
-.btn__add-position
-  width: 200px
-.btn__generate
-  width: 300px
+  background: darken($c-btn, 10%)
 
 .btn__remove:hover
   scale: 1.25
 
+input, textarea
+  padding: 5px 3px 5px 3px
+
 .input-group
   margin: 10px 0 10px 0
+  gap: 5px
   align-items: start
-  width: 50%
-  display: grid
-  grid-template-rows: 1fr
+  display: flex
+  flex-direction: column
 
-  input[type="date"], input[type="number"]
-    width: fit-content
+  .input-wrapper
+    display: flex
+    margin: 3px 0 3px 0
+    border-bottom: 1px solid $c-btn-border
+    label
+      font-weight: 600
+      display: flex
+      align-items: center
+      text-align: start
 
-.input-group__header
+    input, textarea
+      border-radius: 5px
+      border: none
+      transition: 0.2s ease-in
+
+    input
+      height: 35px
+
+    textarea:hover
+      border: 1px solid $c-btn
+      box-shadow: 0 0 3px 1px $c-btn
+
+    textarea:focus
+      border: 1px solid $c-btn
+
+  .input-wrapper--with-borders
+    border: none
+    textarea, input
+      border: 1px solid $c-input-border
+      max-width: 800px
+
+.header-inputs
   width: 100%
-  display: grid
-  grid-template-columns: 1fr 1fr
+  display: flex
+  gap: 40px
 
-.input-group__number-date
-  width: 80%
-  align-items: start
+  .input-group__number-date
+    .input-wrapper
+      label
+        min-width: 75px
+      input
+        width: 125px
 
-  .input-wrapper
-    display: grid
-    grid-template-rows: 1fr
-    grid-template-columns: 1fr 2fr
-
-.input-group__org
-  width: 80%
-  align-items: end
-
-  .input-wrapper
-    display: grid
-    grid-template-rows: 1fr
-    grid-template-columns: 1fr 2fr
+  .input-group__org
+    .input-wrapper
+      label
+        min-width: 85px
+      input
+        width: 400px
 
 .input-group__price
-  align-items: end
+  gap: 0
+  width: fit-content
+  align-self: end
+  box-shadow: 0 0 3px $c-btn-shadow
 
   .input-wrapper
-    display: grid
-    grid-template-rows: 1fr
-    grid-template-columns: 1fr 1.5fr
-.fields-group__footer
+    border: 1px solid $c-input-border
+    padding: 3px
+    margin: 0
+    label
+      min-width: 130px
+    input
+      width: 150px
+
+.input-group__footer
   align-items: start
 
   .input-wrapper
-    display: grid
-    grid-template-rows: 1fr
-    grid-template-columns: 1fr 1.5fr
+    label
+      min-width: 180px
+    textarea
+      resize: both
+      min-width: 500px
+    input
+      width: 50px
+    span
+      align-content: center
+      margin-left: 6px
 
 /* Customize the label (the container) */
 .checkbox-wrapper
   display: block
   position: relative
-  padding-left: 26px
-  transform: translateY(-50%)
-  top: -25%
+  width: 25px
+  height: 25px
   cursor: pointer
   -webkit-user-select: none
   -moz-user-select: none
@@ -426,17 +621,17 @@ label
   left: 0
   height: 25px
   width: 25px
-  background-color: #eee
+  background-color: white
   border: 1px solid black
   border-radius: 3px
 
 /* On mouse-over, add a grey background color */
 .checkbox-wrapper:hover input ~ .checkmark
-  background-color: #ccc
+  background-color: $c-input-border
 
 /* When the checkbox is checked, add a blue background */
 .checkbox-wrapper input:checked ~ .checkmark
-  background-color: #2196F3
+  background-color: $c-input-border
 
 /* Create the checkmark/indicator (hidden when not checked) */
 .checkmark:after
@@ -454,26 +649,71 @@ label
   top: 4px
   width: 5px
   height: 10px
-  border: solid white
-  border-width: 0 3px 3px 0
+  border: solid black
+  border-width: 0 2px 2px 0
   -webkit-transform: rotate(45deg)
   -ms-transform: rotate(45deg)
   transform: rotate(45deg)
 
-.file
-  margin: 15px 0 15px 0
+.file-upload-container
+  display: flex
+  flex-direction: column
+  height: fit-content
+  width: fit-content
+  margin: 20px auto 15px auto
+  align-items: center
+
+.file-upload-wrapper
+  display: flex
+  flex-direction: row
+
+  label, span
+    height: 40px
+
+.file-error-wrapper
+  display: flex
+  color: #bd0101
+  justify-content: space-around
+  font-weight: 700
+  align-items: center
+  margin-top: 8px
+  width: 100%
+  max-width: 340px
+
+  p
+    width: 90%
+  svg
+    width: 10%
+
+.file-input
+  height: 100%
 
 .file-label
-  background-color: indigo
+  height: 100%
+  justify-content: center
+  align-items: center
+  padding: 10px
+  background-color: $c-btn
+  font-weight: 700
   color: white
-  padding: 0.5rem
+  border: 1px solid $c-btn-border
   font-family: sans-serif
-  border-radius: 0.3rem
+  border-top-left-radius: 5px
+  border-bottom-left-radius: 5px
   cursor: pointer
-  margin-top: 1rem
+  display: flex
+
+.file-label:hover
+  background: darken($c-btn, 10%)
 
 #file-chosen
-  margin-left: 0.3rem
+  align-content: center
+  padding: 10px
   font-family: sans-serif
+  border-top: 1px solid black
+  border-bottom: 1px solid black
+  border-right: 1px solid black
+  border-bottom-right-radius: 5px
+  border-top-right-radius: 5px
 
 </style>
