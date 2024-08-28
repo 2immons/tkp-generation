@@ -17,6 +17,8 @@
 input, textarea
   outline: none
   -moz-appearance: none
+  scrollbar-width: none
+
 input
   font-size: inherit
 input[type="date"]

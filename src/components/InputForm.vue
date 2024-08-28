@@ -36,17 +36,17 @@ const saveToSessionStorage = () => {
     organisationName: organisationName.value,
     organisationDept: organisationDept.value,
     totalWithoutNds: totalWithoutNds.value,
-    ndsSum: ndsSum.value,
+    nds: nds.value,
     totalWithNds: totalWithNds.value,
     paymentConditions: paymentConditions.value,
-    deliveryConditions: deliveryConditions.value,
     deliveryTime: deliveryTime.value,
+    paymentTime: paymentTime.value,
     positions: positions.value,
     isCharacteristicsInUse: isCharacteristicsInUse.value,
     fileName: fileName.value,
     fileData: fileData.value,
-    isFileError: isFileError.value,
-    fileErrorMsg: fileErrorMsg.value,
+    isError: isError.value,
+    errorMsg: errorMsg.value,
   }));
 };
 
@@ -60,17 +60,17 @@ const loadFromSessionStorage = () => {
     organisationName.value = state.organisationName;
     organisationDept.value = state.organisationDept;
     totalWithoutNds.value = state.totalWithoutNds;
-    ndsSum.value = state.ndsSum;
+    nds.value = state.nds;
     totalWithNds.value = state.totalWithNds;
     paymentConditions.value = state.paymentConditions;
-    deliveryConditions.value = state.deliveryConditions;
     deliveryTime.value = state.deliveryTime;
+    paymentTime.value = state.paymentTime;
     positions.value = state.positions;
     isCharacteristicsInUse.value = state.isCharacteristicsInUse;
     fileName.value = state.fileName;
     fileData.value = state.fileData;
-    isFileError.value = state.isFileError;
-    fileErrorMsg.value = state.fileErrorMsg;
+    isError.value = state.isError;
+    errorMsg.value = state.errorMsg;
   }
 };
 
@@ -79,12 +79,12 @@ const accountNumber = ref('');
 const accountDate = ref('');
 const organisationName = ref('');
 const organisationDept = ref('В тендерный отдел');
-const totalWithoutNds = ref();
-const ndsSum = ref('');
+const totalWithoutNds = ref(0);
+const nds = ref(0);
 const totalWithNds = ref(0);
-const paymentConditions = ref('');
-const deliveryConditions = ref('');
+const paymentConditions = ref('в соответствии с проектом договора');
 const deliveryTime = ref(90);
+const paymentTime = ref(30);
 const isCharacteristicsInUse = ref(true)
 
 // Позиции ТКП
@@ -95,7 +95,7 @@ const positions = ref<Position[]>([
     productOffer: '',
     productOfferIsAnalog: false,
     unit: 'шт',
-    quantity: 0,
+    quantity: 1,
     priceWithoutNds: 0,
     sumWithOutNds: 0,
   }
@@ -105,8 +105,8 @@ const positions = ref<Position[]>([
 const fileData = ref<ArrayBuffer | null>(null);
 
 // Ошибка файла
-const isFileError = ref(false)
-const fileErrorMsg = ref('')
+const isError = ref(false)
+const errorMsg = ref('')
 
 // Имя файла-шаблона
 const fileName = ref('Шаблон не загружен')
@@ -115,10 +115,12 @@ const fileName = ref('Шаблон не загружен')
 const handleFileUpload = (event: Event) => {
   const inputElement = event.target as HTMLInputElement;
   const file = inputElement.files?.[0];
+  fileName.value = 'Шаблон не загружен'
+  fileData.value = null
   if (file) {
-    isFileError.value = false
+    isError.value = false
     if (!file.name.includes(".docx") || !file.name.includes(".doc")) {
-      showFileError("Неправильное расширение файла.Необходимо .docx или .doc")
+      showError("Неправильное расширение файла.Необходимо .docx или .doc")
       return
     }
     fileName.value = file.name
@@ -153,6 +155,8 @@ const calculateTotalSum = () => {
   positions.value.forEach(positionItem => {
     totalWithoutNds.value += positionItem.sumWithOutNds
   })
+  nds.value = totalWithoutNds.value * 0.2
+  totalWithNds.value = nds.value + totalWithoutNds.value
 }
 
 // cancelFloats запрещает вводить точку и запятую
@@ -170,6 +174,12 @@ const formatToTwoDecimals = (event: Event) => {
   }
 }
 
+const formatNumberToTwoDecimals = (number: number) => {
+  if (!isNaN(number)) {
+    return number.toFixed(2)
+  }
+}
+
 // convertToString переводит дни в строку
 const convertToString = (number: number) => {
   if (number % 10 === 1) return `${number} календарный день`
@@ -177,16 +187,23 @@ const convertToString = (number: number) => {
     return `${number} календарный дня`
 }
 
+// formatDate приводит дату к виду ДД.ММ.ГГГГ
+const formatDate = (dateStr: string) => {
+  const dateParts = dateStr.split('-')
+  return `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`
+}
+
 // showFileError включает отображение ошибки документа
-const showFileError = (errorMsg: string) => {
-  fileErrorMsg.value = errorMsg
-  isFileError.value = true
+const showError = (msg: string) => {
+  errorMsg.value = msg
+  isError.value = true
 }
 
 // generateDocument генерирует документ
 const generateDocument = () => {
+  isError.value = false
   if (!fileData.value) {
-    showFileError("Шаблон документа не загружен")
+    showError("Шаблон документа не загружен")
     return
   }
 
@@ -198,9 +215,21 @@ const generateDocument = () => {
     })
   }
 
-  // TODO: валидация переменных
-
-  totalWithNds.value = Number(totalWithoutNds.value) + Number(ndsSum.value)
+  // Валидация переменных
+  if ((accountNumber.value === '') ||
+      (accountDate.value === '') ||
+      (organisationName.value === '') ||
+      (organisationDept.value === '') ||
+      (paymentConditions.value === '') ||
+      (!(totalWithoutNds.value > 0)) ||
+      (!(nds.value > 0)) ||
+      (!(totalWithNds.value > 0)) ||
+      (!(deliveryTime.value > 0)) ||
+      (!(paymentTime.value > 0))
+      ){
+    showError("Не указаны необходимые переменные!")
+    return
+  }
 
   const zip = new PizZip(fileData.value)
   const doc = new Docxtemplater(zip, {
@@ -210,18 +239,19 @@ const generateDocument = () => {
 
   const templateData = {
     accountNumber: accountNumber.value,
-    accountDate: accountDate.value,
+    accountDate: formatDate(accountDate.value),
     organisationName: organisationName.value,
     organisationDept: organisationDept.value,
-    totalWithoutNds: totalWithoutNds.value,
-    ndsSum: ndsSum.value,
-    totalWithNds: totalWithNds.value,
+    totalWithoutNds: formatNumberToTwoDecimals(totalWithoutNds.value),
+    ndsSum: formatNumberToTwoDecimals(totalWithoutNds.value * 0.2),
+    totalWithNds: formatNumberToTwoDecimals(totalWithNds.value),
     totalWithNdsLetters: convert(totalWithNds.value),
-    paymentConditions: paymentConditions.value,
-    deliveryConditions: deliveryConditions.value,
-    deliveryTime: convertToString(deliveryTime.value),
+    deliveryConditions: paymentConditions.value,
+    deliveryTime: deliveryTime.value  ,
+    paymentTime: paymentTime.value,
     positions: positions.value,
     isCharacteristicsInUse: isCharacteristicsInUse.value,
+    isCharacteristicsNotInUse: !isCharacteristicsInUse.value,
   }
 
   doc.setData(templateData)
@@ -279,12 +309,12 @@ const removePositionRow = (item: Position) => {
         <label class="file-label" for="actual-btn">Загрузить шаблон</label>
         <span id="file-chosen">{{ fileName }}</span>
       </div>
-      <span v-if="isFileError" class="file-error-wrapper">
+      <span v-if="isError" class="file-error-wrapper">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 12V7.5M12 15.3354V15.375M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
                 stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <p>{{ fileErrorMsg }}</p>
+        <p>{{ errorMsg }}</p>
       </span>
     </div>
 
@@ -378,20 +408,26 @@ const removePositionRow = (item: Position) => {
       </div>
 
       <div class="input-wrapper">
-        <label>Всего НДС:</label>
-        <input v-model="ndsSum" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
+        <label>НДС (20%):</label>
+        <input v-model="nds" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
+      </div>
+
+      <div class="input-wrapper">
+        <label>Всего с НДС:</label>
+        <input v-model="totalWithNds" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
       </div>
     </div>
 
     <div class="input-group input-group__footer">
       <div class="input-wrapper input-wrapper--with-borders">
-        <label>Условия оплаты:</label>
+        <label>Условия доставки:</label>
         <textarea v-model="paymentConditions"></textarea>
       </div>
 
       <div class="input-wrapper input-wrapper--with-borders">
-        <label>Условия доставки:</label>
-        <textarea v-model="deliveryConditions"></textarea>
+        <label>Срок оплаты:</label>
+        <input v-model="paymentTime" type="number" step="1" @keydown="cancelFloats"/>
+        <span>календарных дней</span>
       </div>
 
       <div class="input-wrapper input-wrapper--with-borders">
@@ -500,6 +536,9 @@ textarea
 
 .btn:hover
   background: darken($c-btn, 10%)
+
+.btn__add-position
+  align-self: center
 
 .btn__remove:hover
   scale: 1.25
