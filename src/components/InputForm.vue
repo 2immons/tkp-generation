@@ -286,7 +286,7 @@ const addPositionRow = () => {
     productOffer: '',
     productOfferIsAnalog: false,
     unit: 'шт',
-    quantity: 0,
+    quantity: 1,
     priceWithoutNds: 0,
     sumWithOutNds: 0,
   } as Position
@@ -349,71 +349,75 @@ const removePositionRow = (item: Position) => {
       <span>Характеристики</span>
     </div>
 
-    <div class="table">
-      <div class="table__header" :class="characteristicsClass">
-        <div class="header-cell">№<br>п/п</div>
-        <div class="header-cell">Наименование<br>(Требование)</div>
-        <div class="header-cell" v-if="isCharacteristicsInUse">Требуемые<br>характеристики</div>
-        <div class="header-cell">Предложение участника<br>(выделить аналоги)</div>
-        <div class="header-cell">Ед.<br>измер.</div>
-        <div class="header-cell">Кол-во</div>
-        <div class="header-cell">Цена за ед.,<br>без НДС</div>
-        <div class="header-cell">Стоимость,<br>без НДС</div>
-        <div class="header-cell"></div>
-      </div>
+    <table class="table">
+      <thead class="table__header" :class="characteristicsClass">
+        <tr>
+          <th class="header-cell" style="width: 4%">№<br>п/п</th>
+          <th class="header-cell" style="width: 18%">Наименование<br>(Требование)</th>
+          <th class="header-cell" style="width: 20%" v-if="isCharacteristicsInUse">Требуемые<br>характеристики</th>
+          <th class="header-cell" style="width: 20%">Предложение участника<br>(выделить аналоги)</th>
+          <th class="header-cell" style="width: 7%">Ед.<br>измер.</th>
+          <th class="header-cell" style="width: 7%">Кол-во</th>
+          <th class="header-cell" style="width: 10%">Цена за ед.,<br>без НДС</th>
+          <th class="header-cell" style="width: 10%">Стоимость,<br>без НДС</th>
+          <th class="header-cell" style="width: 4%"></th>
+        </tr>
+      </thead>
 
-      <div class="table__row" :class="characteristicsClass" v-for="(position, index) in positions" :key="index">
-        <div class="cell cell--index">{{ index + 1 }}</div>
-        <div class="cell">
-          <textarea class="cell__textarea" v-model="position.name"></textarea>
-        </div>
-        <div class="cell" v-if="isCharacteristicsInUse">
-          <textarea class="cell__textarea" v-model="position.characteristics"></textarea>
-        </div>
-        <div class="cell cell--checkbox">
-          <textarea class="cell__textarea" v-model="position.productOffer"></textarea>
-          <label class="checkbox-wrapper">
-            <input type="checkbox" v-model="position.productOfferIsAnalog">
-            <span class="checkmark"></span>
-          </label>
-        </div>
-        <div class="cell">
-          <input class="cell__input" type="text" v-model="position.unit">
-        </div>
-        <div class="cell">
-          <input class="cell__input" type="number" v-model="position.quantity" @input="calculateSum(position)">
-        </div>
-        <div class="cell">
-          <input class="cell__input" type="number" v-model="position.priceWithoutNds" @blur="formatToTwoDecimals" @input="calculateSum(position)">
-        </div>
-        <div class="cell">
-          <input class="cell__input" type="number" v-model="position.sumWithOutNds" @blur="formatToTwoDecimals" @input="calculatePrice(position)">
-        </div>
-        <div class="cell cell--button">
-          <button class="btn__remove" @click="removePositionRow(position)">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 6.17647H20M9 3H15M10 16.7647V10.4118M14 16.7647V10.4118M15.5 21H8.5C7.39543 21 6.5 20.0519 6.5 18.8824L6.0434 7.27937C6.01973 6.67783 6.47392 6.17647 7.04253 6.17647H16.9575C17.5261 6.17647 17.9803 6.67783 17.9566 7.27937L17.5 18.8824C17.5 20.0519 16.6046 21 15.5 21Z" stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
+      <tbody class="table__body">
+        <tr :class="characteristicsClass" v-for="(position, index) in positions" :key="index">
+          <th class="cell cell--index">{{ index + 1 }}</th>
+          <th class="cell">
+            <textarea class="cell__textarea" v-model="position.name"></textarea>
+          </th>
+          <th class="cell" v-if="isCharacteristicsInUse">
+            <textarea class="cell__textarea" v-model="position.characteristics"></textarea>
+          </th>
+          <th class="cell cell--checkbox">
+            <textarea class="cell__textarea" v-model="position.productOffer"></textarea>
+            <label class="checkbox-wrapper">
+              <input type="checkbox" v-model="position.productOfferIsAnalog">
+              <span class="checkmark"></span>
+            </label>
+          </th>
+          <th class="cell">
+            <input class="cell__input cell__input--short" type="text" v-model="position.unit">
+          </th>
+          <th class="cell">
+            <input class="cell__input cell__input--short" type="number" v-model="position.quantity" @input="calculateSum(position)">
+          </th>
+          <th class="cell">
+            <input class="cell__input" type="number" v-model="position.priceWithoutNds" @blur="formatToTwoDecimals" @input="calculateSum(position)">
+          </th>
+          <th class="cell">
+            <input class="cell__input" type="number" v-model="position.sumWithOutNds" @blur="formatToTwoDecimals" @input="calculatePrice(position)">
+          </th>
+          <th class="cell cell--button">
+            <button class="btn__remove" @click="removePositionRow(position)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 6.17647H20M9 3H15M10 16.7647V10.4118M14 16.7647V10.4118M15.5 21H8.5C7.39543 21 6.5 20.0519 6.5 18.8824L6.0434 7.27937C6.01973 6.67783 6.47392 6.17647 7.04253 6.17647H16.9575C17.5261 6.17647 17.9803 6.67783 17.9566 7.27937L17.5 18.8824C17.5 20.0519 16.6046 21 15.5 21Z" stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </th>
+        </tr>
+      </tbody>
+    </table>
 
     <button class="btn btn__add-position" @click="addPositionRow">Добавить позицию</button>
 
     <div class="input-group input-group__price">
       <div class="input-wrapper">
-        <label>Всего без НДС:</label>
+        <label class="total-price-label">Всего без НДС:</label>
         <input v-model="totalWithoutNds" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
       </div>
 
       <div class="input-wrapper">
-        <label>НДС (20%):</label>
+        <label class="total-price-label">НДС (20%):</label>
         <input v-model="nds" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
       </div>
 
       <div class="input-wrapper">
-        <label>Всего с НДС:</label>
+        <label class="total-price-label">Всего с НДС:</label>
         <input v-model="totalWithNds" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
       </div>
     </div>
@@ -455,38 +459,53 @@ const removePositionRow = (item: Position) => {
     color: $c-grey-text
 
 .table
-  border: 1px solid black
+  border-collapse: collapse
+  border: none
   margin: 10px 0 10px 0
+.table__header
+  background: $c-table-header-bg
+  font-weight: bold
+  height: 60px
+  text-align: center
+  border: none
+  padding: 10px 15px
+  font-size: 14px
+.table__body
+  text-align: left
+  padding: 10px 15px
+  font-size: 14px
+  vertical-align: top
+.table thead tr th:first-child, .table tbody tr td:first-child
+  border-left: none
+.table thead tr th:last-child, .table tbody tr td:last-child
+  border-right: none
+.table tbody tr:nth-child(even)
+  background: #f3f3f3
+
 .header-cell
-  display: flex
-  border: 1px solid black
   padding: 4px 0 4px 0
   align-items: center
   justify-content: center
   overflow: hidden
-.with-characteristics
-  grid-template-columns: 3% 20% 20% 20% 6% 7% 10% 10% 4%
-.without-characteristics
-  grid-template-columns: 4% 25% 25% 8% 10% 12% 12% 4%
-.table__header
-  display: grid
-  border-bottom: 1px solid black
-  background: $c-table-header-bg
-  color: black
-.table__row
-  display: grid
 .cell
-  display: flex
   align-items: center
   height: 100%
   min-height: 50px
-  width: 100%
-  border: 1px solid black
+
+  textarea, input
+    background: inherit
+  textarea:focus, input:focus
+    border: 1px solid $c-border
+  textarea:hover, input:hover
+    cursor: pointer
+
 .cell--index
-  justify-content: center
+  text-align: center
+  padding: 5px 3px 5px 3px
 .cell--sum
   padding: 5px 3px 5px 3px
 .cell--button
+  padding: 5px 3px 5px 3px
   overflow: hidden
 .cell__input
   height: 100%
@@ -494,6 +513,8 @@ const removePositionRow = (item: Position) => {
   border-radius: 0
   border: none
   text-overflow: ellipsis
+.cell__input--short
+  text-align: center
 .cell--checkbox
   display: flex
   padding-right: 6px
@@ -542,6 +563,9 @@ textarea
 
 .btn__remove:hover
   scale: 1.25
+
+.btn__generate
+  margin-bottom: 40px
 
 input, textarea
   padding: 5px 3px 5px 3px
@@ -611,12 +635,15 @@ input, textarea
 
   .input-wrapper
     border: 1px solid $c-input-border
-    padding: 3px
+    padding: 2px 6px
     margin: 0
     label
       min-width: 130px
     input
       width: 150px
+
+    .total-price-label
+      font-style: italic
 
 .input-group__footer
   align-items: start
@@ -637,7 +664,7 @@ input, textarea
 .checkbox-wrapper
   display: block
   position: relative
-  width: 25px
+  width: 27px
   height: 25px
   cursor: pointer
   -webkit-user-select: none
