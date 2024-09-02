@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import {computed, onBeforeUnmount, onMounted, ref} from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { saveAs } from 'file-saver';
-import { convert } from 'number-to-words-ru'
-import axios from "axios";
+import { convert as convertToWords } from 'number-to-words-ru'
 
 interface Position {
+  index: number,
   name: string,
   characteristics?: string,
   productOffer: string,
@@ -15,6 +15,8 @@ interface Position {
   quantity: number,
   priceWithoutNds: number,
   sumWithOutNds: number,
+  priceWithoutNdsStr: string,
+  sumWithOutNdsStr: string,
 }
 
 // Загрузка данных из sessionStorage при монтировании компонента
@@ -87,9 +89,10 @@ const deliveryTime = ref(90);
 const paymentTime = ref(30);
 const isCharacteristicsInUse = ref(true)
 
-// Позиции ТКП
+// Массив позиций ТКП
 const positions = ref<Position[]>([
   {
+    index: 1,
     name: '',
     characteristics: '',
     productOffer: '',
@@ -98,6 +101,8 @@ const positions = ref<Position[]>([
     quantity: 1,
     priceWithoutNds: 0,
     sumWithOutNds: 0,
+    priceWithoutNdsStr: '0.00',
+    sumWithOutNdsStr: '0.00'
   }
 ]);
 
@@ -134,6 +139,12 @@ const handleFileUpload = (event: Event) => {
   }
 };
 
+// showFileError включает отображение ошибки документа
+const showError = (msg: string) => {
+  errorMsg.value = msg
+  isError.value = true
+}
+
 // calculateSum подсчитывает сумму по позиции
 const calculateSum = (position: Position) => {
   position.sumWithOutNds = position.priceWithoutNds * position.quantity
@@ -166,7 +177,8 @@ const cancelFloats = (event: KeyboardEvent) => {
   }
 }
 
-const formatToTwoDecimals = (event: Event) => {
+// formatToTwoDecimalsAfterInput форматирует введенное значение к виду "0.00"
+const formatToTwoDecimalsAfterInput = (event: Event) => {
   const input = event.target as HTMLInputElement
   const numericValue = parseFloat(input.value)
   if (!isNaN(numericValue)) {
@@ -174,17 +186,24 @@ const formatToTwoDecimals = (event: Event) => {
   }
 }
 
-const formatNumberToTwoDecimals = (number: number) => {
+// formatNumberToTwoDecimalsString конвертирует число в строку и форматирует к виду "0.00"
+const formatNumberToTwoDecimalsString = (number: number) => {
   if (!isNaN(number)) {
     return number.toFixed(2)
-  }
+  } else return '0.00'
 }
 
 // convertToString переводит дни в строку
-const convertToString = (number: number) => {
-  if (number % 10 === 1) return `${number} календарный день`
-  else if (number % 10 === 2 || number % 10 === 3 || number % 10 === 4)
-    return `${number} календарный дня`
+const convertDaysNumberToString = (number: number, form: string) => {
+  if (form === "именительный падеж") {
+    if (number % 10 === 1) return `${number} календарный день`
+    else if (number % 10 === 2 || number % 10 === 3 || number % 10 === 4)
+      return `${number} календарных дня`
+    else return `${number} календарных дней`
+  } else if (form === "родительный падеж") {
+    if (number % 10 === 1) return `${number} календарного дня`
+    else return `${number} календарных дней`
+  }
 }
 
 // formatDate приводит дату к виду ДД.ММ.ГГГГ
@@ -193,26 +212,18 @@ const formatDate = (dateStr: string) => {
   return `${dateParts[2]}.${dateParts[1]}.${dateParts[0]}`
 }
 
-// showFileError включает отображение ошибки документа
-const showError = (msg: string) => {
-  errorMsg.value = msg
-  isError.value = true
+// previewDocument включает окно предпросмотра документа
+const previewDocument = (doc: Blob) => {
+  // TODO:
+  console.log(doc)
 }
 
 // generateDocument генерирует документ
-const generateDocument = () => {
+const generateDocument = async (download?: boolean) => {
   isError.value = false
   if (!fileData.value) {
     showError("Шаблон документа не загружен")
     return
-  }
-
-  // Удаляем характеристики, если они не используются
-  if (!isCharacteristicsInUse.value) {
-    positions.value = positions.value.map(position => {
-      const { characteristics, ...rest } = position
-      return rest
-    })
   }
 
   // Валидация переменных
@@ -237,21 +248,25 @@ const generateDocument = () => {
     linebreaks: true,
   })
 
+  positions.value.forEach((pos: Position) => {
+    pos.priceWithoutNdsStr = formatNumberToTwoDecimalsString(pos.priceWithoutNds)
+    pos.sumWithOutNdsStr = formatNumberToTwoDecimalsString(pos.sumWithOutNds)
+  })
+
   const templateData = {
     accountNumber: accountNumber.value,
     accountDate: formatDate(accountDate.value),
     organisationName: organisationName.value,
     organisationDept: organisationDept.value,
-    totalWithoutNds: formatNumberToTwoDecimals(totalWithoutNds.value),
-    ndsSum: formatNumberToTwoDecimals(totalWithoutNds.value * 0.2),
-    totalWithNds: formatNumberToTwoDecimals(totalWithNds.value),
-    totalWithNdsLetters: convert(totalWithNds.value),
+    totalWithoutNds: formatNumberToTwoDecimalsString(totalWithoutNds.value),
+    ndsSum: formatNumberToTwoDecimalsString(totalWithoutNds.value * 0.2),
+    totalWithNds: formatNumberToTwoDecimalsString(totalWithNds.value),
+    totalWithNdsLetters: convertToWords(totalWithNds.value),
     deliveryConditions: paymentConditions.value,
-    deliveryTime: deliveryTime.value  ,
-    paymentTime: paymentTime.value,
+    paymentTime: convertDaysNumberToString(paymentTime.value, "именительный падеж"),
+    deliveryTime: convertDaysNumberToString(deliveryTime.value, "родительный падеж"),
     positions: positions.value,
     isCharacteristicsInUse: isCharacteristicsInUse.value,
-    isCharacteristicsNotInUse: !isCharacteristicsInUse.value,
   }
 
   doc.setData(templateData)
@@ -270,17 +285,16 @@ const generateDocument = () => {
 
   const fileName = `ТКП_№${accountNumber.value}_от_${accountDate.value}_для_${organisationName.value}.docx`
 
-  saveAs(generatedDocBuffer, fileName)
+  previewDocument(generatedDocBuffer)
 
-  // Тут конвертация в PDF массива generatedDocBuffer
+  if (download) {
+    saveAs(generatedDocBuffer, fileName)
+  }
 }
-
-const characteristicsClass = computed(() => {
-  return isCharacteristicsInUse.value ? 'with-characteristics' : 'without-characteristics'
-})
 
 const addPositionRow = () => {
   const newPosition = {
+    index: positions.value.length + 1,
     name: '',
     characteristics: '',
     productOffer: '',
@@ -289,6 +303,8 @@ const addPositionRow = () => {
     quantity: 1,
     priceWithoutNds: 0,
     sumWithOutNds: 0,
+    priceWithoutNdsStr: '0.00',
+    sumWithOutNdsStr: '0.00'
   } as Position
   positions.value.push(newPosition)
 }
@@ -350,7 +366,7 @@ const removePositionRow = (item: Position) => {
     </div>
 
     <table class="table">
-      <thead class="table__header" :class="characteristicsClass">
+      <thead class="table__header">
         <tr>
           <th class="header-cell" style="width: 4%">№<br>п/п</th>
           <th class="header-cell" style="width: 18%">Наименование<br>(Требование)</th>
@@ -365,8 +381,8 @@ const removePositionRow = (item: Position) => {
       </thead>
 
       <tbody class="table__body">
-        <tr :class="characteristicsClass" v-for="(position, index) in positions" :key="index">
-          <th class="cell cell--index">{{ index + 1 }}</th>
+        <tr v-for="(position, index) in positions" :key="index">
+          <th class="cell cell--index">{{ position.index }}</th>
           <th class="cell">
             <textarea class="cell__textarea" v-model="position.name"></textarea>
           </th>
@@ -375,7 +391,8 @@ const removePositionRow = (item: Position) => {
           </th>
           <th class="cell cell--checkbox">
             <textarea class="cell__textarea" v-model="position.productOffer"></textarea>
-            <label class="checkbox-wrapper">
+            <label class="checkbox-wrapper tooltip">
+              <span class="tooltip__text">Выделить аналог</span>
               <input type="checkbox" v-model="position.productOfferIsAnalog">
               <span class="checkmark"></span>
             </label>
@@ -387,10 +404,10 @@ const removePositionRow = (item: Position) => {
             <input class="cell__input cell__input--short" type="number" v-model="position.quantity" @input="calculateSum(position)">
           </th>
           <th class="cell">
-            <input class="cell__input" type="number" v-model="position.priceWithoutNds" @blur="formatToTwoDecimals" @input="calculateSum(position)">
+            <input class="cell__input cell__input--price" type="number" v-model="position.priceWithoutNds" @blur="formatToTwoDecimalsAfterInput" @input="calculateSum(position)">
           </th>
           <th class="cell">
-            <input class="cell__input" type="number" v-model="position.sumWithOutNds" @blur="formatToTwoDecimals" @input="calculatePrice(position)">
+            <input class="cell__input cell__input--price" type="number" v-model="position.sumWithOutNds" @blur="formatToTwoDecimalsAfterInput" @input="calculatePrice(position)">
           </th>
           <th class="cell cell--button">
             <button class="btn__remove" @click="removePositionRow(position)">
@@ -408,17 +425,17 @@ const removePositionRow = (item: Position) => {
     <div class="input-group input-group__price">
       <div class="input-wrapper">
         <label class="total-price-label">Всего без НДС:</label>
-        <input v-model="totalWithoutNds" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
+        <input v-model="totalWithoutNds" @blur="formatToTwoDecimalsAfterInput" type="number" placeholder="12345,12"/>
       </div>
 
       <div class="input-wrapper">
         <label class="total-price-label">НДС (20%):</label>
-        <input v-model="nds" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
+        <input v-model="nds" @blur="formatToTwoDecimalsAfterInput" type="number" placeholder="12345,12"/>
       </div>
 
       <div class="input-wrapper">
         <label class="total-price-label">Всего с НДС:</label>
-        <input v-model="totalWithNds" @blur="formatToTwoDecimals" type="number" placeholder="12345,12"/>
+        <input v-model="totalWithNds" @blur="formatToTwoDecimalsAfterInput" type="number" placeholder="12345,12"/>
       </div>
     </div>
 
@@ -441,7 +458,10 @@ const removePositionRow = (item: Position) => {
       </div>
     </div>
 
-    <button class="btn btn__generate" @click="generateDocument">Сгенерировать документ</button>
+    <div class="footer-buttons">
+      <button class="btn btn__preview" @click="generateDocument(false)">Предпросмотр документа</button>
+      <button class="btn btn__generate" @click="generateDocument(true)">Сгенерировать документ</button>
+    </div>
   </div>
 </template>
 
@@ -480,7 +500,7 @@ const removePositionRow = (item: Position) => {
 .table thead tr th:last-child, .table tbody tr td:last-child
   border-right: none
 .table tbody tr:nth-child(even)
-  background: #f3f3f3
+  background: lighten($c-table-header-bg, 10%)
 
 .header-cell
   padding: 4px 0 4px 0
@@ -501,8 +521,7 @@ const removePositionRow = (item: Position) => {
 
 .cell--index
   text-align: center
-  padding: 5px 3px 5px 3px
-.cell--sum
+  vertical-align: middle
   padding: 5px 3px 5px 3px
 .cell--button
   padding: 5px 3px 5px 3px
@@ -513,6 +532,8 @@ const removePositionRow = (item: Position) => {
   border-radius: 0
   border: none
   text-overflow: ellipsis
+.cell__input--price
+  text-align: right
 .cell__input--short
   text-align: center
 .cell--checkbox
@@ -660,6 +681,11 @@ input, textarea
       align-content: center
       margin-left: 6px
 
+.footer-buttons
+  align-self: start
+  display: flex
+  gap: 30px
+
 /* Customize the label (the container) */
 .checkbox-wrapper
   display: block
@@ -717,7 +743,6 @@ input, textarea
   height: 10px
   border: solid black
   border-width: 0 2px 2px 0
-  -webkit-transform: rotate(45deg)
   -ms-transform: rotate(45deg)
   transform: rotate(45deg)
 
@@ -781,5 +806,28 @@ input, textarea
   border-right: 1px solid black
   border-bottom-right-radius: 5px
   border-top-right-radius: 5px
+
+.tooltip
+  position: relative
+  .tooltip__text
+    width: fit-content
+    min-width: 130px
+    background-color: white
+    color: $c-btn-border
+    border: 1px solid $c-btn-border
+    text-align: center
+    border-radius: 6px
+    padding: 5px 5px
+    font-size: 13px
+    position: absolute
+    z-index: 1
+    top: 28px
+    left: 50%
+    transform: translateX(-50%)
+    opacity: 0
+    transition: 0.1s ease-in opacity
+  &:hover
+    .tooltip__text
+      opacity: 100%
 
 </style>

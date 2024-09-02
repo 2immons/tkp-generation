@@ -3,6 +3,16 @@
 </template>
 
 <style lang="sass">
+@import "src/styles/variables"
+::-webkit-scrollbar
+  width: 10px
+
+::-webkit-scrollbar-track
+  background-color: lighten($c-track, 10%)
+
+::-webkit-scrollbar-thumb
+  background: gray
+
 #app
   font-family: Avenir, Helvetica, Arial, sans-serif
   -webkit-font-smoothing: antialiased

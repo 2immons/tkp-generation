@@ -5,7 +5,7 @@
 <template>
   <header>
     <div class="container">
-      <img src="../../public/Logo.png" alt="">
+      <img src="../assets/Logo.png" alt="">
       <h1>DocsGeneration</h1>
     </div>
   </header>
