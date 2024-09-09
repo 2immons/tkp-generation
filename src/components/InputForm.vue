@@ -17,6 +17,7 @@ interface Position {
   sumWithOutNds: number,
   priceWithoutNdsStr: string,
   sumWithOutNdsStr: string,
+  positionsNumberToInput: number,
 }
 
 // Загрузка данных из sessionStorage при монтировании компонента
@@ -42,6 +43,7 @@ const saveToSessionStorage = () => {
     totalWithNds: totalWithNds.value,
     paymentConditions: paymentConditions.value,
     deliveryTime: deliveryTime.value,
+    deliveryPlace: deliveryPlace.value,
     paymentTime: paymentTime.value,
     positions: positions.value,
     isCharacteristicsInUse: isCharacteristicsInUse.value,
@@ -66,6 +68,7 @@ const loadFromSessionStorage = () => {
     totalWithNds.value = state.totalWithNds;
     paymentConditions.value = state.paymentConditions;
     deliveryTime.value = state.deliveryTime;
+    deliveryPlace.value = state.deliveryPlace;
     paymentTime.value = state.paymentTime;
     positions.value = state.positions;
     isCharacteristicsInUse.value = state.isCharacteristicsInUse;
@@ -86,6 +89,7 @@ const nds = ref(0);
 const totalWithNds = ref(0);
 const paymentConditions = ref('в соответствии с проектом договора');
 const deliveryTime = ref(90);
+const deliveryPlace = ref('')
 const paymentTime = ref(30);
 const isCharacteristicsInUse = ref(true)
 
@@ -102,7 +106,8 @@ const positions = ref<Position[]>([
     priceWithoutNds: 0,
     sumWithOutNds: 0,
     priceWithoutNdsStr: '0.00',
-    sumWithOutNdsStr: '0.00'
+    sumWithOutNdsStr: '0.00',
+    positionsNumberToInput: 1
   }
 ]);
 
@@ -237,7 +242,7 @@ const generateDocument = async (download?: boolean) => {
       (!(totalWithNds.value > 0)) ||
       (!(deliveryTime.value > 0)) ||
       (!(paymentTime.value > 0))
-      ){
+  ){
     showError("Не указаны необходимые переменные!")
     return
   }
@@ -263,6 +268,7 @@ const generateDocument = async (download?: boolean) => {
     totalWithNds: formatNumberToTwoDecimalsString(totalWithNds.value),
     totalWithNdsLetters: convertToWords(totalWithNds.value),
     deliveryConditions: paymentConditions.value,
+    deliveryPlace: deliveryPlace.value,
     paymentTime: convertDaysNumberToString(paymentTime.value, "именительный падеж"),
     deliveryTime: convertDaysNumberToString(deliveryTime.value, "родительный падеж"),
     positions: positions.value,
@@ -304,9 +310,24 @@ const addPositionRow = () => {
     priceWithoutNds: 0,
     sumWithOutNds: 0,
     priceWithoutNdsStr: '0.00',
-    sumWithOutNdsStr: '0.00'
+    sumWithOutNdsStr: '0.00',
+    positionsNumberToInput: 1,
   } as Position
   positions.value.push(newPosition)
+}
+
+const inputPositions = (item: Position) => {
+  const index = positions.value.indexOf(item)
+  if (index === -1)
+    return
+
+  const newPositions: Position[] = [];
+
+  for (let i = 0; i < item.positionsNumberToInput; i++) {
+    newPositions.push({ ...item })
+  }
+
+  positions.value.splice(index, 0, ...newPositions)
 }
 
 const removePositionRow = (item: Position) => {
@@ -367,56 +388,64 @@ const removePositionRow = (item: Position) => {
 
     <table class="table">
       <thead class="table__header">
-        <tr>
-          <th class="header-cell" style="width: 4%">№<br>п/п</th>
-          <th class="header-cell" style="width: 18%">Наименование<br>(Требование)</th>
-          <th class="header-cell" style="width: 20%" v-if="isCharacteristicsInUse">Требуемые<br>характеристики</th>
-          <th class="header-cell" style="width: 20%">Предложение участника<br>(выделить аналоги)</th>
-          <th class="header-cell" style="width: 7%">Ед.<br>измер.</th>
-          <th class="header-cell" style="width: 7%">Кол-во</th>
-          <th class="header-cell" style="width: 10%">Цена за ед.,<br>без НДС</th>
-          <th class="header-cell" style="width: 10%">Стоимость,<br>без НДС</th>
-          <th class="header-cell" style="width: 4%"></th>
-        </tr>
+      <tr>
+        <th class="header-cell" style="width: 4%">№<br>п/п</th>
+        <th class="header-cell" style="width: 18%">Наименование<br>(Требование)</th>
+        <th class="header-cell" style="width: 20%" v-if="isCharacteristicsInUse">Требуемые<br>характеристики</th>
+        <th class="header-cell" style="width: 20%">Предложение участника<br>(выделить аналоги)</th>
+        <th class="header-cell" style="width: 7%">Ед.<br>измер.</th>
+        <th class="header-cell" style="width: 7%">Кол-во</th>
+        <th class="header-cell" style="width: 10%">Цена за ед.,<br>без НДС</th>
+        <th class="header-cell" style="width: 10%">Стоимость,<br>без НДС</th>
+        <th class="header-cell" style="width: 4%"></th>
+      </tr>
       </thead>
 
       <tbody class="table__body">
-        <tr v-for="(position, index) in positions" :key="index">
-          <th class="cell cell--index">{{ position.index }}</th>
-          <th class="cell">
-            <textarea class="cell__textarea" v-model="position.name"></textarea>
-          </th>
-          <th class="cell" v-if="isCharacteristicsInUse">
-            <textarea class="cell__textarea" v-model="position.characteristics"></textarea>
-          </th>
-          <th class="cell cell--checkbox">
-            <textarea class="cell__textarea" v-model="position.productOffer"></textarea>
-            <label class="checkbox-wrapper tooltip">
-              <span class="tooltip__text">Выделить аналог</span>
-              <input type="checkbox" v-model="position.productOfferIsAnalog">
-              <span class="checkmark"></span>
-            </label>
-          </th>
-          <th class="cell">
-            <input class="cell__input cell__input--short" type="text" v-model="position.unit">
-          </th>
-          <th class="cell">
-            <input class="cell__input cell__input--short" type="number" v-model="position.quantity" @input="calculateSum(position)">
-          </th>
-          <th class="cell">
-            <input class="cell__input cell__input--price" type="number" v-model="position.priceWithoutNds" @blur="formatToTwoDecimalsAfterInput" @input="calculateSum(position)">
-          </th>
-          <th class="cell">
-            <input class="cell__input cell__input--price" type="number" v-model="position.sumWithOutNds" @blur="formatToTwoDecimalsAfterInput" @input="calculatePrice(position)">
-          </th>
-          <th class="cell cell--button">
-            <button class="btn__remove" @click="removePositionRow(position)">
+      <tr v-for="(position, index) in positions" :key="index">
+        <th class="cell cell--index">{{ position.index }}</th>
+        <th class="cell">
+          <textarea class="cell__textarea" v-model="position.name"></textarea>
+        </th>
+        <th class="cell" v-if="isCharacteristicsInUse">
+          <textarea class="cell__textarea" v-model="position.characteristics"></textarea>
+        </th>
+        <th class="cell cell--checkbox">
+          <textarea class="cell__textarea" v-model="position.productOffer"></textarea>
+          <label class="checkbox-wrapper tooltip">
+            <span class="tooltip__text">Выделить аналог</span>
+            <input type="checkbox" v-model="position.productOfferIsAnalog">
+            <span class="checkmark"></span>
+          </label>
+        </th>
+        <th class="cell">
+          <input class="cell__input cell__input--short" type="text" v-model="position.unit">
+        </th>
+        <th class="cell">
+          <input class="cell__input cell__input--short" type="number" v-model="position.quantity" @input="calculateSum(position)">
+        </th>
+        <th class="cell">
+          <input class="cell__input cell__input--price" type="number" v-model="position.priceWithoutNds" @blur="formatToTwoDecimalsAfterInput" @input="calculateSum(position)">
+        </th>
+        <th class="cell">
+          <input class="cell__input cell__input--price" type="number" v-model="position.sumWithOutNds" @blur="formatToTwoDecimalsAfterInput" @input="calculatePrice(position)">
+        </th>
+        <th class="cell cell--button">
+          <button class="btn__remove" @click="removePositionRow(position)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 6.17647H20M9 3H15M10 16.7647V10.4118M14 16.7647V10.4118M15.5 21H8.5C7.39543 21 6.5 20.0519 6.5 18.8824L6.0434 7.27937C6.01973 6.67783 6.47392 6.17647 7.04253 6.17647H16.9575C17.5261 6.17647 17.9803 6.67783 17.9566 7.27937L17.5 18.8824C17.5 20.0519 16.6046 21 15.5 21Z" stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="copy-position-menu">
+            <input type="number" v-model="position.positionsNumberToInput">
+            <button @click="inputPositions(position)" class="copy-btn">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 6.17647H20M9 3H15M10 16.7647V10.4118M14 16.7647V10.4118M15.5 21H8.5C7.39543 21 6.5 20.0519 6.5 18.8824L6.0434 7.27937C6.01973 6.67783 6.47392 6.17647 7.04253 6.17647H16.9575C17.5261 6.17647 17.9803 6.67783 17.9566 7.27937L17.5 18.8824C17.5 20.0519 16.6046 21 15.5 21Z" stroke="red" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M20 13.1251L20 6.00003C20 4.34317 18.6568 3.00002 17 3.00003L9.875 3.00012M14 21.0001L7.25 21.0001C6.00736 21.0001 5 19.9928 5 18.7501L5 9.00012C5 7.75747 6.00736 6.75011 7.25 6.75011L14 6.75011C15.2426 6.75011 16.25 7.75747 16.25 9.00011L16.25 18.7501C16.25 19.9928 15.2426 21.0001 14 21.0001Z" stroke="black" stroke-width="2" stroke-linecap="round"/>
               </svg>
             </button>
-          </th>
-        </tr>
+          </div>
+        </th>
+      </tr>
       </tbody>
     </table>
 
@@ -443,6 +472,11 @@ const removePositionRow = (item: Position) => {
       <div class="input-wrapper input-wrapper--with-borders">
         <label>Условия доставки:</label>
         <textarea v-model="paymentConditions"></textarea>
+      </div>
+
+      <div class="input-wrapper input-wrapper--with-borders">
+        <label>Место поставки:</label>
+        <textarea v-model="deliveryPlace" placeholder="Введите место поставки..."></textarea>
       </div>
 
       <div class="input-wrapper input-wrapper--with-borders">
@@ -526,6 +560,38 @@ const removePositionRow = (item: Position) => {
 .cell--button
   padding: 5px 3px 5px 3px
   overflow: hidden
+  position: relative
+
+  .copy-position-menu
+    display: flex
+    align-items: center
+    border: 1px solid $c-border
+    border-radius: 5px
+
+    svg
+      cursor: pointer
+      transition: 0.1s ease
+    svg:hover
+      scale: 1.1
+    .copy-btn
+      border: none
+      background: none
+    input
+      cursor: text
+      width: 50%
+      border: none
+      height: 20px
+      padding: 0
+      text-align: center
+    /* Для Chrome, Safari, Edge, Opera */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button
+      -webkit-appearance: none
+      margin: 0
+
+    /* Для Firefox */
+    input[type="number"]
+      -moz-appearance: textfield
 .cell__input
   height: 100%
   width: 100%
